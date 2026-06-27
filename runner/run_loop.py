@@ -32,6 +32,7 @@ from __future__ import annotations
 import base64
 import json
 import os
+import signal
 import subprocess
 import sys
 import urllib.request
@@ -317,15 +318,32 @@ def main() -> int:
 
     if STREAM:
         env_id = None
+        _cancel = {"id": None}
+
+        def _on_sigint(_sig, _frame):
+            # Ctrl-C must cancel the SERVER-SIDE run, not just the local stream (else it keeps billing).
+            iid = _cancel["id"]
+            print(f"\n\n^C — cancelling server-side interaction {iid or '(none captured yet)'}…", flush=True)
+            if iid:
+                try:
+                    client.interactions.cancel(id=iid)
+                    print(f"cancelled {iid}.", flush=True)
+                except Exception as e:  # noqa: BLE001
+                    print(f"cancel call failed: {e}\n  retry: python3 runner/cancel_loop.py {iid}", file=sys.stderr)
+            raise SystemExit(130)
+
+        signal.signal(signal.SIGINT, _on_sigint)
         stream = client.interactions.create(
             agent=AGENT_ID, input=prompt, environment=environment, stream=True,
         )
         for event in stream:
             et = getattr(event, "event_type", "") or getattr(event, "type", "")
             if et == "interaction.created":
-                env_id = getattr(getattr(event, "interaction", None), "environment_id", None)
-                if env_id:
-                    print(f"[sandbox {env_id}]\n", flush=True)
+                _ix = getattr(event, "interaction", None)
+                env_id = getattr(_ix, "environment_id", None)
+                _cancel["id"] = getattr(_ix, "id", None)
+                print(f"[interaction {_cancel['id']} | sandbox {env_id}]", flush=True)
+                print(f"  cancel: Ctrl-C here, or  python3 runner/cancel_loop.py {_cancel['id']}\n", flush=True)
             elif et == "step.start":
                 sd = _to_dict(getattr(event, "step", None))
                 stype = sd.get("type") or "step"
