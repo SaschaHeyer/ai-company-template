@@ -28,6 +28,9 @@
   code{background:#0b0f14;padding:2px 6px;border-radius:4px;font-size:12px}
   rect{transition:opacity .1s}rect:hover{opacity:.8}
   .err{color:var(--warn)}
+  .rates{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:16px;font-size:13px;color:var(--muted)}
+  .rates input{background:#0b0f14;border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:4px 6px;width:64px;font-size:13px}
+  .rates .hint{font-size:11px}
 </style>
 </head>
 <body>
@@ -42,6 +45,13 @@
   <input id="file" type="file" accept=".yaml,.yml" hidden>
 
   <div id="content" style="display:none">
+    <div class="rates">
+      <span>cost rates</span>
+      <label>input $/1M <input id="rin" type="number" min="0" step="0.01" placeholder="e.g. 2"></label>
+      <label>output $/1M <input id="rout" type="number" min="0" step="0.01" placeholder="e.g. 12"></label>
+      <label>cached × <input id="rcf" type="number" min="0" max="1" step="0.05" value="0.25"></label>
+      <span class="hint">tokens are exact; $ = tokens × your rate (cached billed at input × factor)</span>
+    </div>
     <div class="cards" id="cards"></div>
     <div class="panel"><h2>Tokens per loop — stacked breakdown (✗ = did not push)</h2><div id="bars"></div>
       <div class="legend">
@@ -80,23 +90,43 @@ function parseYaml(text){
 const num = n => n.toLocaleString('en-US');
 const g = (r,k) => +(r[k]||0);
 
+let RUNS = [], SRC = '';
+const money = x => '$' + x.toFixed(x < 10 ? 3 : 2);
+
 function render(text, srcName){
   let runs;
   try { runs = parseYaml(text).filter(r => 'total_tokens' in r); }
   catch(e){ $('#src').innerHTML = '<span class="err">parse error: '+e.message+'</span>'; return; }
   if(!runs.length){ $('#src').innerHTML='<span class="err">no run records found in '+srcName+'</span>'; return; }
-
-  const n = runs.length;
-  const totalTok = runs.reduce((s,r)=>s+g(r,'total_tokens'),0);
-  const pushed = runs.filter(r=>r.pushed===true).length;
-  const hasCost = runs.some(r=>'est_cost' in r && r.est_cost!=null);
-  const totalCost = runs.reduce((s,r)=>s+g(r,'est_cost'),0);
-  const money = x => '$'+x.toFixed(x<10?3:2);
-
-  $('#src').innerHTML = 'source: <code>'+srcName+'</code> · '+n+' run'+(n>1?'s':'');
-  $('#content').style.display='block';
+  RUNS = runs; SRC = srcName;
+  $('#content').style.display = 'block';
   $('#drop').classList.add('hide');
+  draw();
+}
 
+function rates(){
+  const inR = parseFloat($('#rin').value) || 0;
+  const outR = parseFloat($('#rout').value) || 0;
+  let cf = parseFloat($('#rcf').value); if(isNaN(cf)) cf = 0.25;
+  return { inR, outR, cf, on: inR > 0 || outR > 0 };
+}
+function costOf(r, R){     // uncached input + cached(×factor) at input rate; output+thought+tool at output rate
+  const uncached = Math.max(g(r,'input_tokens') - g(r,'cached_tokens'), 0);
+  return uncached/1e6*R.inR
+       + g(r,'cached_tokens')/1e6*R.inR*R.cf
+       + (g(r,'output_tokens') + g(r,'thought_tokens') + g(r,'tool_tokens'))/1e6*R.outR;
+}
+
+function draw(){
+  const runs = RUNS, n = runs.length, R = rates();
+  const costs = runs.map(r => R.on ? costOf(r, R)
+                              : ('est_cost' in r && r.est_cost != null ? +r.est_cost : null));
+  const hasCost = costs.some(c => c != null);
+  const totalTok = runs.reduce((s,r)=>s+g(r,'total_tokens'),0);
+  const totalCost = costs.reduce((s,c)=>s+(c||0),0);
+  const pushed = runs.filter(r=>r.pushed===true).length;
+
+  $('#src').innerHTML = 'source: <code>'+SRC+'</code> · '+n+' run'+(n>1?'s':'');
   const cards = [
     ['runs', num(n)],
     ['total tokens', num(totalTok)],
@@ -107,11 +137,11 @@ function render(text, srcName){
   ];
   $('#cards').innerHTML = cards.map(([k,v,big]) =>
     `<div class="card${big?' big':''}"><div class="k">${k}</div><div class="v">${v}</div>${
-      (!hasCost && (k.includes('$'))) ? '<div style="font-size:11px;color:var(--muted);margin-top:4px">set GEMINI_INPUT_RATE / OUTPUT_RATE</div>' : ''
+      (!hasCost && k.includes('$')) ? '<div style="font-size:11px;color:var(--muted);margin-top:4px">enter a rate above ↑</div>' : ''
     }</div>`).join('');
 
   $('#bars').innerHTML = stackedBars(runs);
-  $('#cum').innerHTML = cumulative(runs, hasCost);
+  $('#cum').innerHTML = cumulative(runs, costs, hasCost);
   $('#cumcostleg').style.display = hasCost ? '' : 'none';
 }
 
@@ -149,10 +179,10 @@ function stackedBars(runs){
   return s;
 }
 
-function cumulative(runs, hasCost){
+function cumulative(runs, costs, hasCost){
   const W=960,H=300,L=64,Rr=hasCost?64:16,T=14,B=34, pw=W-L-Rr, ph=H-T-B, n=runs.length;
   let ct=0, cc=0; const tok=[], cost=[];
-  runs.forEach(r=>{ ct+=g(r,'total_tokens'); cc+=g(r,'est_cost'); tok.push(ct); cost.push(cc); });
+  runs.forEach((r,i)=>{ ct+=g(r,'total_tokens'); cc+=(costs[i]||0); tok.push(ct); cost.push(cc); });
   const tMax=niceMax(ct||1), cMax=niceMax(cc||1);
   const X=i=>L+(n<=1?pw/2:pw*i/(n-1));
   const yT=v=>T+ph-(v/tMax)*ph, yC=v=>T+ph-(v/cMax)*ph;
@@ -192,6 +222,7 @@ fileIn.onchange=e=>{ const f=e.target.files[0]; if(f) f.text().then(t=>render(t,
 ['dragover','dragenter'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.style.borderColor='#4c78a8';}));
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.style.borderColor='#313b46';}));
 drop.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) f.text().then(t=>render(t,f.name)); });
+['#rin','#rout','#rcf'].forEach(s=>$(s).addEventListener('input', ()=>{ if(RUNS.length) draw(); }));
 init();
 </script>
 </body>
