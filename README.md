@@ -60,7 +60,7 @@ Per CEO, with an account that can create projects + link billing:
 ## Files
 ```
 agent/        system_instruction.md (the brief) + create/delete/list_agents.py
-runner/       run_loop.py (the trigger) + call_agent.py (ad-hoc chat) + plot_costs.py (chart COST_LOG)
+runner/       run_loop.py (trigger) + call_agent.py (chat) + cost_dashboard.html (interactive cost view) + plot_costs.py (static PNG)
 deploy/       main.py + Dockerfile + deploy.sh (Cloud Run + Scheduler)
 workspace/    CEO.md, human-tasks.md, loop_state.md, BUSINESS.md, LEARNINGS.md
               tools/: secrets.py (proxy auth), send_digest.py (operator email), crm.py (Firestore CRM)
