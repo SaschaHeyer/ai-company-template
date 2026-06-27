@@ -225,6 +225,52 @@ def _remote_main_sha(repo_url: str, pat: str | None) -> str | None:
         return None
 
 
+def _log_usage(ix, before_sha=None, after_sha=None) -> None:
+    """Report this loop's token consumption from the interaction's `usage` (the API returns it).
+
+    Each loop is exactly ONE interaction, so `usage` IS the whole loop's cost. Prints a breakdown and,
+    if COST_LOG is set, appends a CSV row to build per-loop history. A euro estimate is added only when
+    GEMINI_INPUT_RATE / GEMINI_OUTPUT_RATE (per 1M tokens) are set — otherwise we report exact tokens and
+    leave the euro figure to the billing dashboard (antigravity uses tiered pricing).
+    """
+    usage_obj = getattr(ix, "usage", None) if ix is not None else None
+    if usage_obj is None:
+        print("\n💸 usage: (none returned)", flush=True)
+        return
+    u = _to_dict(usage_obj) or {}
+
+    def g(k):
+        v = u.get(k)
+        if v is None:
+            v = getattr(usage_obj, k, 0)
+        return int(v or 0)
+
+    inp, out, thought = g("total_input_tokens"), g("total_output_tokens"), g("total_thought_tokens")
+    tool, cached, total = g("total_tool_use_tokens"), g("total_cached_tokens"), g("total_tokens")
+    pushed = bool(before_sha and after_sha and after_sha != before_sha)
+    line = (f"tokens total={total:,}  in={inp:,} out={out:,} thought={thought:,} "
+            f"tool={tool:,} cached={cached:,}  pushed={pushed}")
+    ri = float(os.environ.get("GEMINI_INPUT_RATE", "0") or 0)
+    ro = float(os.environ.get("GEMINI_OUTPUT_RATE", "0") or 0)
+    if ri or ro:
+        line += f"  est~{inp / 1e6 * ri + (out + thought) / 1e6 * ro:.3f}"
+    print(f"\n💸 {line}", flush=True)
+
+    path = os.environ.get("COST_LOG", "").strip()
+    if path:
+        import csv as _csv
+        import datetime as _dt
+        new = not os.path.exists(path)
+        with open(path, "a", newline="", encoding="utf-8") as f:
+            w = _csv.writer(f)
+            if new:
+                w.writerow(["utc", "interaction_id", "status", "total", "input", "output",
+                            "thought", "tool", "cached", "pushed"])
+            w.writerow([_dt.datetime.utcnow().isoformat(timespec="seconds"), getattr(ix, "id", ""),
+                        getattr(ix, "status", ""), total, inp, out, thought, tool, cached, pushed])
+        print(f"   (logged to {path})", flush=True)
+
+
 def main() -> int:
     if not os.environ.get("GEMINI_API_KEY"):
         print("ERROR: set GEMINI_API_KEY", file=sys.stderr)
@@ -245,6 +291,7 @@ def main() -> int:
 
     client = genai.Client()
     before_sha = _remote_main_sha(WORKSPACE_REPO_URL, gh_pat)
+    result_ix = None
 
     if STREAM:
         env_id = None
@@ -285,6 +332,7 @@ def main() -> int:
                         print(f"\n  → {str(res)[:500]}", flush=True)  # its output
             elif et == "interaction.completed":
                 ix = getattr(event, "interaction", None)
+                result_ix = ix
                 print(f"\n\n-- done. status={getattr(ix, 'status', '?')} env={env_id}", flush=True)
     else:
         interaction = client.interactions.create(
@@ -295,6 +343,7 @@ def main() -> int:
         print(f"environment_id: {getattr(interaction, 'environment_id', '?')}")
         print("\n--- CEO loop summary ---\n")
         print(getattr(interaction, "output_text", "") or "(no text output)")
+        result_ix = interaction
 
     # Did the loop actually persist its work? Git-as-memory only works if it pushed.
     after_sha = _remote_main_sha(WORKSPACE_REPO_URL, gh_pat)
@@ -303,6 +352,8 @@ def main() -> int:
               "The agent must commit + push every loop.", file=sys.stderr)
     elif before_sha and after_sha and after_sha != before_sha:
         print(f"\n[git: pushed {before_sha[:7]} -> {after_sha[:7]}]", file=sys.stderr)
+
+    _log_usage(result_ix, before_sha, after_sha)
     return 0
 
 
