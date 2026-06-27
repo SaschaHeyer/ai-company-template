@@ -31,6 +31,8 @@
   .rates{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-bottom:16px;font-size:13px;color:var(--muted)}
   .rates input{background:#0b0f14;border:1px solid var(--line);color:var(--ink);border-radius:6px;padding:4px 6px;width:64px;font-size:13px}
   .rates .hint{font-size:11px}
+  .toggle button{background:transparent;border:1px solid var(--line);color:var(--muted);border-radius:6px;padding:3px 11px;font-size:12px;cursor:pointer;margin-left:5px}
+  .toggle button.on{background:var(--in);border-color:var(--in);color:#fff}
 </style>
 </head>
 <body>
@@ -53,7 +55,12 @@
       <span class="hint">defaults = gemini-3.5-flash ($1.50 in / $9 out / cached 0.1×); $ = tokens × rate, edit if your model differs</span>
     </div>
     <div class="cards" id="cards"></div>
-    <div class="panel"><h2>Tokens per loop — stacked breakdown (✗ = did not push)</h2><div id="bars"></div>
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;margin-bottom:6px">
+        <h2 style="margin:0">Tokens per loop — stacked breakdown (✗ = did not push)</h2>
+        <span class="toggle" id="viewtoggle"><button data-v="all" class="on">all</button><button data-v="input">input</button><button data-v="output">output</button></span>
+      </div>
+      <div id="bars"></div>
       <div class="legend">
         <span><i style="background:var(--in)"></i>input (uncached)</span><span><i style="background:var(--cached)"></i>cached</span>
         <span><i style="background:var(--out)"></i>output</span><span><i style="background:var(--thought)"></i>thought</span>
@@ -127,10 +134,15 @@ function draw(){
   const pushed = runs.filter(r=>r.pushed===true).length;
 
   $('#src').innerHTML = 'source: <code>'+SRC+'</code> · '+n+' run'+(n>1?'s':'');
+  const totalIn = runs.reduce((s,r)=>s+g(r,'input_tokens'),0);
+  const totalOut = runs.reduce((s,r)=>s+g(r,'output_tokens')+g(r,'thought_tokens'),0);
+  const haveSteps = runs.some(r=>'steps' in r);
   const cards = [
     ['runs', num(n)],
     ['total tokens', num(totalTok)],
-    ['avg tokens / run', num(Math.round(totalTok/n))],
+    ['input tokens', num(totalIn)],
+    ['output tokens', num(totalOut)],
+    ['avg steps / run', haveSteps ? num(Math.round(runs.reduce((s,r)=>s+g(r,'steps'),0)/n)) : '—'],
     ['total est $', hasCost?money(totalCost):'—'],
     ['avg $ / run', hasCost?money(totalCost/n):'—', true],
     ['pushed', pushed+' / '+n],
@@ -155,9 +167,17 @@ const SEGMENTS = [
 ];
 function niceMax(v){ const p=Math.pow(10,Math.floor(Math.log10(v||1))); return Math.ceil(v/p)*p; }
 
+let VIEW = 'all';
+const VIEWS = {
+  all:    SEGMENTS,
+  input:  SEGMENTS.filter(s => s[0]==='input (uncached)' || s[0]==='cached'),
+  output: SEGMENTS.filter(s => s[0]==='output' || s[0]==='thought' || s[0]==='tool'),
+};
+
 function stackedBars(runs){
   const W=960,H=340,L=64,R=16,T=14,B=34, pw=W-L-R, ph=H-T-B;
-  const n=runs.length, max=niceMax(Math.max(...runs.map(r=>g(r,'total_tokens')),1));
+  const n=runs.length, segs=VIEWS[VIEW];
+  const max=niceMax(Math.max(...runs.map(r=>segs.reduce((a,sg)=>a+sg[1](r),0)),1));
   const bw=Math.min(48, pw/n*0.7), gap=pw/n;
   const y=v=>T+ph-(v/max)*ph;
   let s=`<svg viewBox="0 0 ${W} ${H}" font-family="sans-serif" font-size="11">`;
@@ -169,7 +189,7 @@ function stackedBars(runs){
   const step=Math.ceil(n/24);
   runs.forEach((r,i)=>{
     const cx=L+gap*i+gap/2, x=cx-bw/2; let yb=T+ph;
-    for(const [name,fn,col] of SEGMENTS){ const v=fn(r); if(v<=0) continue; const h=(v/max)*ph; yb-=h;
+    for(const [name,fn,col] of segs){ const v=fn(r); if(v<=0) continue; const h=(v/max)*ph; yb-=h;
       s+=`<rect x="${x}" y="${yb}" width="${bw}" height="${h}" fill="${col}"><title>loop ${i+1} · ${name}: ${num(v)}</title></rect>`;
     }
     if(r.pushed!==true) s+=`<text x="${cx}" y="${yb-4}" fill="#e45756" text-anchor="middle" font-weight="700">✗</text>`;
@@ -223,6 +243,9 @@ fileIn.onchange=e=>{ const f=e.target.files[0]; if(f) f.text().then(t=>render(t,
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.style.borderColor='#313b46';}));
 drop.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f) f.text().then(t=>render(t,f.name)); });
 ['#rin','#rout','#rcf'].forEach(s=>$(s).addEventListener('input', ()=>{ if(RUNS.length) draw(); }));
+document.querySelectorAll('#viewtoggle button').forEach(b=>b.addEventListener('click',()=>{
+  VIEW=b.dataset.v; document.querySelectorAll('#viewtoggle button').forEach(x=>x.classList.toggle('on',x===b)); if(RUNS.length) draw();
+}));
 init();
 </script>
 </body>

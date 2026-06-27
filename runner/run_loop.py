@@ -245,7 +245,7 @@ def _append_yaml(path: str, rec: dict) -> None:
         f.write("\n".join(block) + "\n")
 
 
-def _log_usage(ix, before_sha=None, after_sha=None) -> None:
+def _log_usage(ix, before_sha=None, after_sha=None, steps=None) -> None:
     """Report this loop's token consumption from the interaction's `usage` (the API returns it).
 
     Each loop is exactly ONE interaction, so `usage` IS the whole loop's cost. Prints a breakdown and,
@@ -269,7 +269,7 @@ def _log_usage(ix, before_sha=None, after_sha=None) -> None:
     tool, cached, total = g("total_tool_use_tokens"), g("total_cached_tokens"), g("total_tokens")
     pushed = bool(before_sha and after_sha and after_sha != before_sha)
     line = (f"tokens total={total:,}  in={inp:,} out={out:,} thought={thought:,} "
-            f"tool={tool:,} cached={cached:,}  pushed={pushed}")
+            f"tool={tool:,} cached={cached:,}  steps={steps}  pushed={pushed}")
     ri = float(os.environ.get("GEMINI_INPUT_RATE", "0") or 0)
     ro = float(os.environ.get("GEMINI_OUTPUT_RATE", "0") or 0)
     cf = float(os.environ.get("GEMINI_CACHED_FACTOR", "0.1") or 0.1)   # gemini-3.5-flash cached read ≈ 0.1x input
@@ -289,7 +289,7 @@ def _log_usage(ix, before_sha=None, after_sha=None) -> None:
             "status": str(getattr(ix, "status", "") or ""),
             "total_tokens": total, "input_tokens": inp, "output_tokens": out,
             "thought_tokens": thought, "tool_tokens": tool, "cached_tokens": cached,
-            "pushed": pushed, "after_sha": (after_sha or "")[:12],
+            "pushed": pushed, "steps": (steps if steps is not None else 0), "after_sha": (after_sha or "")[:12],
         }
         if est is not None:
             rec["est_cost"] = est
@@ -318,6 +318,7 @@ def main() -> int:
     client = genai.Client()
     before_sha = _remote_main_sha(WORKSPACE_REPO_URL, gh_pat)
     result_ix = None
+    step_count = 0
 
     if STREAM:
         env_id = None
@@ -348,6 +349,7 @@ def main() -> int:
                 print(f"[interaction {_cancel['id']} | sandbox {env_id}]", flush=True)
                 print(f"  cancel: Ctrl-C here, or  python3 runner/cancel_loop.py {_cancel['id']}\n", flush=True)
             elif et == "step.start":
+                step_count += 1
                 sd = _to_dict(getattr(event, "step", None))
                 stype = sd.get("type") or "step"
                 if stype == "thought":
@@ -410,7 +412,7 @@ def main() -> int:
     elif before_sha and after_sha and after_sha != before_sha:
         print(f"\n[git: pushed {before_sha[:7]} -> {after_sha[:7]}]", file=sys.stderr)
 
-    _log_usage(result_ix, before_sha, after_sha)
+    _log_usage(result_ix, before_sha, after_sha, step_count)
     return 0
 
 
