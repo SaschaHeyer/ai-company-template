@@ -10,11 +10,12 @@
 ## Loop 0 — fresh start
 - New autonomous CEO on the Gemini managed-agent runtime. Harness: `agent/` (definition), `runner/`
   (trigger), `deploy/` (Cloud Run + Scheduler), `workspace/` (this git memory). Auth is proxy-only (Step 0).
-- **Next loop:** read `human-tasks.md` + `BUSINESS.md`. If the business is undefined, propose one to the
-  operator and wait. If defined + approved, start at the top of the backlog (name the company).
+- **Next loop:** read `human-tasks.md` + `BUSINESS.md`. If the business is undefined, you're in IDEATION:
+  run the `competitor-analysis` skill on the niche first (mandatory), then propose the business + its
+  competitor map and wait. If defined + approved, start at the top of the backlog (name the company).
 
 ## Backlog (highest-EV first)
-- [ ] Confirm or propose the business (`BUSINESS.md`) and get operator approval.
+- [ ] Ideation: run `competitor-analysis` on the niche, then propose the business (`BUSINESS.md`) + competitor map and get operator approval.
 - [ ] Name the company, register a domain, set up the Resend sending domain + a basic landing page.
 - [ ] Build the product MVP; wire signup → Stripe → Firestore CRM.
 - [ ] Operator comms: send the first digest; start handling inbound email.

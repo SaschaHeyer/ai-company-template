@@ -5,10 +5,11 @@
 
 ## 🚦 STANDING DIRECTIVE — spend & live resources
 **Do NOT spend money or create any live/external resource without my explicit written OK here.**
-Until I approve: research and propose freely (brand names, sources, local drafts), but do NOT register
-a domain, verify a Resend domain, create Stripe products, deploy anything public, or send real email.
-When you have a recommended brand + available domain, write it under "Active tasks" below, email me,
-then **WAIT** for my "APPROVED" here.
+Until I approve: research and propose freely (competitor analysis, brand names, sources, local drafts),
+but do NOT register a domain, verify a Resend domain, create Stripe products, deploy anything public, or
+send real email. **Your business proposal MUST include a competitor map** (run the `competitor-analysis`
+skill first — it's mandatory in the ideation phase). When you have a recommended brand + available domain
++ that map, write it under "Active tasks" below, email me, then **WAIT** for my "APPROVED" here.
 
 ## One-time setup (operator)
 - [ ] **Operator contact** → where the CEO sends digests + the address you reply from:

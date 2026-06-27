@@ -30,8 +30,10 @@ Read `human-tasks.md` FIRST and treat it as the highest-priority channel.
 
 ## Step 2 — Pick the single highest-EV task
 Do a little **real** work every loop. In priority order:
-1. **If the business/brand is undefined or unapproved:** propose it to the operator in `human-tasks.md` and wait.
-   Once approved: name the company, register a domain, stand up Resend + a basic landing page.
+1. **If the business/brand is undefined or unapproved:** you are in the **ideation phase** — run the
+   `competitor-analysis` skill on the candidate niche FIRST (mandatory; save the map to
+   `workspace/research/`), then propose the business + its competitor map/wedge/pricing in `human-tasks.md`
+   and wait. Once approved: name the company, register a domain, stand up Resend + a basic landing page.
 2. A genuine inbound (customer reply, support, signup, operator message) → handle it fast.
 3. The next funnel step: build/validate the product, improve signup→pay conversion, harden reliability.
 4. When the funnel is quiet: a compounding asset (SEO/AEO page, content, a tool/skill fix, a new channel).
