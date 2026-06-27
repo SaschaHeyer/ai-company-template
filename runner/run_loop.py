@@ -272,7 +272,10 @@ def _log_usage(ix, before_sha=None, after_sha=None) -> None:
             f"tool={tool:,} cached={cached:,}  pushed={pushed}")
     ri = float(os.environ.get("GEMINI_INPUT_RATE", "0") or 0)
     ro = float(os.environ.get("GEMINI_OUTPUT_RATE", "0") or 0)
-    est = round(inp / 1e6 * ri + (out + thought) / 1e6 * ro, 4) if (ri or ro) else None
+    cf = float(os.environ.get("GEMINI_CACHED_FACTOR", "0.1") or 0.1)   # gemini-3.5-flash cached read ≈ 0.1x input
+    uncached = max(inp - cached, 0)
+    est = (round(uncached / 1e6 * ri + cached / 1e6 * ri * cf + (out + thought + tool) / 1e6 * ro, 4)
+           if (ri or ro) else None)
     if est is not None:
         line += f"  est~{est}"
     print(f"\n💸 {line}", flush=True)

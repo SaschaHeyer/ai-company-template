@@ -47,10 +47,10 @@
   <div id="content" style="display:none">
     <div class="rates">
       <span>cost rates</span>
-      <label>input $/1M <input id="rin" type="number" min="0" step="0.01" placeholder="e.g. 2"></label>
-      <label>output $/1M <input id="rout" type="number" min="0" step="0.01" placeholder="e.g. 12"></label>
-      <label>cached × <input id="rcf" type="number" min="0" max="1" step="0.05" value="0.25"></label>
-      <span class="hint">tokens are exact; $ = tokens × your rate (cached billed at input × factor)</span>
+      <label>input $/1M <input id="rin" type="number" min="0" step="0.01" value="1.5"></label>
+      <label>output $/1M <input id="rout" type="number" min="0" step="0.01" value="9"></label>
+      <label>cached × <input id="rcf" type="number" min="0" max="1" step="0.05" value="0.1"></label>
+      <span class="hint">defaults = gemini-3.5-flash ($1.50 in / $9 out / cached 0.1×); $ = tokens × rate, edit if your model differs</span>
     </div>
     <div class="cards" id="cards"></div>
     <div class="panel"><h2>Tokens per loop — stacked breakdown (✗ = did not push)</h2><div id="bars"></div>
