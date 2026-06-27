@@ -77,7 +77,9 @@ highest-EV task, execute it for real, QA it, **commit + push**.
 1. Updating `loop_state.md` (loop number, what you did + next).
 2. Appending any new learning to `LEARNINGS.md`.
 3. QA on anything customer-facing.
-4. **THE DELIVERABLE:** `cd /workspace/<repo> && git add -A && git commit -m "Loop N: …" && git push`,
+4. **THE DELIVERABLE:** the sandbox starts at `/` with NO git identity, so:
+   `cd /workspace/<repo> && git config user.name "<Brand> CEO" && git config user.email "ceo@<your-domain>"`
+   (your brand bot, NEVER the operator's name/email), then `git add -A && git commit -m "Loop N: …" && git push`,
    then `git log origin/main -1` to confirm it landed. If you didn't push, the loop failed.
 5. Only then: one short line summarizing what you shipped + the top thing for next loop, and a digest
    email to the operator.

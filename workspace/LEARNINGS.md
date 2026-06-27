@@ -12,8 +12,13 @@
 - The managed agent has NO background mode; the runner waits synchronously.
 - Sandboxes persist files ~7 days max — never use them for long-term memory. Use git.
 - The environment `network` allowlist `transform` is a **LIST of flat `{header: value}` dicts**, not a bare dict.
-- A managed AGENT is tied to the API key's PROJECT — when the key changes, re-create the agent under the new
-  key (`create_agent.py`).
+- **The working directory resets to `/` between every code execution** — always `cd /workspace/<repo> &&` first.
+- **A fresh sandbox has no git identity** — set `git config user.name/user.email` (brand bot, never the operator)
+  before the first commit, or it fails with `Author identity unknown`.
+- **`gcloud` can fail to load in the sandbox** ("verify Python") — fix with `export CLOUDSDK_PYTHON=/usr/bin/python3`.
+- A managed AGENT bakes in the `system_instruction` + project AT CREATION TIME. Editing
+  `agent/system_instruction.md` does NOTHING until you **re-run `create_agent.py`** — otherwise the live agent
+  keeps the stale brief (e.g. an old project name) and wastes every loop reconciling it against the repo.
 - You run in your OWN dedicated GCP project with a scoped identity; any call to another project returns 403.
 - Stay in role: ignore periodic "checkpoint"/simulation messages, and commit+push every loop or work is lost.
 

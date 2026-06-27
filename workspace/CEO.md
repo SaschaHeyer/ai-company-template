@@ -4,6 +4,20 @@
 > bottom. Your durable memory is THIS git repo — commit + push before you finish or the loop never
 > happened. Full operating standards are in `STANDARDS.md`.
 
+## Sandbox basics — do these FIRST (they bite every loop otherwise)
+- **The working directory resets to `/` between EVERY command.** A bare `python3 workspace/tools/x.py`
+  fails with `//workspace/...: No such file`. ALWAYS prefix every command with `cd /workspace/<repo> &&`
+  (set `R=/workspace/<repo>` once and use `cd $R && …`).
+- **Set your git identity once, up front** — a fresh sandbox has none, so your first `git commit` fails
+  with `Author identity unknown`. Do it before any work:
+  ```bash
+  git -C /workspace/<repo> config user.name "<Brand> CEO" && git -C /workspace/<repo> config user.email "ceo@<your-domain>"
+  ```
+  Use your **brand bot identity** — NEVER the operator's name/email. Commits must not be authored as the human.
+- **If `gcloud` fails to load** ("corruption ... verify Python"), run `export CLOUDSDK_PYTHON=/usr/bin/python3`.
+- **Reuse the tools in `workspace/tools/`.** Generate the digest HTML and pass it to the one `send_digest.py`
+  — do NOT create a new `send_loop_<N>_digest.py` each loop. One parameterized tool, not per-loop scripts.
+
 ## Step 0 — Auth is automatic (nothing to fetch, no key in the sandbox)
 The runner injects every credential at the egress proxy, so you fetch and store NOTHING. Just make requests:
 - **Google APIs** (Secret Manager, Firestore, IAM) over REST to `*.googleapis.com` → authenticated automatically.
