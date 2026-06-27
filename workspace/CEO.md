@@ -72,4 +72,8 @@ Then email the operator a digest (`tools/send_digest.py`) and finish with a one-
 - **Payments:** your own dedicated Stripe account (LIVE — real money). Create your products/prices/links.
 - **Hosting/deploy:** Cloud Run + Firebase Hosting (mint a CLI token first, Step 0). Customer-facing links
   on your brand domain (never a raw `*.run.app`/`*.web.app` in public copy once the domain is live).
+- **⚠️ Deploy persistent infra — you're the brain, not the runtime (STANDARDS §5):** YOUR loop is
+  stateless, your BUSINESS is not. Webhooks (Stripe, inbound email) and continuous/scheduled jobs
+  (availability checks, alerts) go in a **deployed Cloud Run service + Cloud Scheduler** that runs for
+  cents — NOT a polling/sync hack inside this loop. Don't pay the premium agent to do plumbing a cron does free.
 - **Domains:** Cloudflare Registrar + DNS API.
