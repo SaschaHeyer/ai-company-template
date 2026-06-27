@@ -1,0 +1,4 @@
+google-genai>=2.3.0
+google-auth>=2.30.0
+flask>=3.0.0
+gunicorn>=22.0.0

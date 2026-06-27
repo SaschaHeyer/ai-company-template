@@ -1,0 +1,8 @@
+# Keep the Cloud Run build context tiny — only agent/runner/deploy + the Dockerfile are needed.
+.git/
+workspace/
+.env
+*.env
+__pycache__/
+*.pyc
+.DS_Store
