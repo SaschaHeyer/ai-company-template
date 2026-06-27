@@ -225,13 +225,32 @@ def _remote_main_sha(repo_url: str, pat: str | None) -> str | None:
         return None
 
 
+def _append_yaml(path: str, rec: dict) -> None:
+    """Append one run as a YAML list item so the file stays a valid YAML sequence — load it later for
+    charts with `import yaml; runs = yaml.safe_load(open(path))` (a list of dicts). No PyYAML needed to
+    WRITE: the records are flat str/int/bool, so we format them by hand."""
+    def fmt(v):
+        if isinstance(v, bool):
+            return "true" if v else "false"
+        if isinstance(v, (int, float)):
+            return str(v)
+        return '"' + str(v).replace("\\", "\\\\").replace('"', '\\"') + '"'
+    keys = list(rec)
+    block = [f"- {keys[0]}: {fmt(rec[keys[0]])}"] + [f"  {k}: {fmt(rec[k])}" for k in keys[1:]]
+    new = not os.path.exists(path)
+    with open(path, "a", encoding="utf-8") as f:
+        if new:
+            f.write("# per-loop cost log — a YAML sequence. Load with yaml.safe_load(open(this_file)).\n")
+        f.write("\n".join(block) + "\n")
+
+
 def _log_usage(ix, before_sha=None, after_sha=None) -> None:
     """Report this loop's token consumption from the interaction's `usage` (the API returns it).
 
     Each loop is exactly ONE interaction, so `usage` IS the whole loop's cost. Prints a breakdown and,
-    if COST_LOG is set, appends a CSV row to build per-loop history. A euro estimate is added only when
-    GEMINI_INPUT_RATE / GEMINI_OUTPUT_RATE (per 1M tokens) are set — otherwise we report exact tokens and
-    leave the euro figure to the billing dashboard (antigravity uses tiered pricing).
+    if COST_LOG is set, appends a YAML record to build per-loop history (for later charting). A euro
+    estimate is added only when GEMINI_INPUT_RATE / GEMINI_OUTPUT_RATE (per 1M tokens) are set — otherwise
+    we report exact tokens and leave the euro figure to the billing dashboard (antigravity is tiered).
     """
     usage_obj = getattr(ix, "usage", None) if ix is not None else None
     if usage_obj is None:
@@ -252,22 +271,25 @@ def _log_usage(ix, before_sha=None, after_sha=None) -> None:
             f"tool={tool:,} cached={cached:,}  pushed={pushed}")
     ri = float(os.environ.get("GEMINI_INPUT_RATE", "0") or 0)
     ro = float(os.environ.get("GEMINI_OUTPUT_RATE", "0") or 0)
-    if ri or ro:
-        line += f"  est~{inp / 1e6 * ri + (out + thought) / 1e6 * ro:.3f}"
+    est = round(inp / 1e6 * ri + (out + thought) / 1e6 * ro, 4) if (ri or ro) else None
+    if est is not None:
+        line += f"  est~{est}"
     print(f"\n💸 {line}", flush=True)
 
     path = os.environ.get("COST_LOG", "").strip()
     if path:
-        import csv as _csv
         import datetime as _dt
-        new = not os.path.exists(path)
-        with open(path, "a", newline="", encoding="utf-8") as f:
-            w = _csv.writer(f)
-            if new:
-                w.writerow(["utc", "interaction_id", "status", "total", "input", "output",
-                            "thought", "tool", "cached", "pushed"])
-            w.writerow([_dt.datetime.utcnow().isoformat(timespec="seconds"), getattr(ix, "id", ""),
-                        getattr(ix, "status", ""), total, inp, out, thought, tool, cached, pushed])
+        rec = {
+            "ts": _dt.datetime.utcnow().isoformat(timespec="seconds"),
+            "interaction_id": getattr(ix, "id", "") or "",
+            "status": str(getattr(ix, "status", "") or ""),
+            "total_tokens": total, "input_tokens": inp, "output_tokens": out,
+            "thought_tokens": thought, "tool_tokens": tool, "cached_tokens": cached,
+            "pushed": pushed, "after_sha": (after_sha or "")[:12],
+        }
+        if est is not None:
+            rec["est_cost"] = est
+        _append_yaml(path, rec)
         print(f"   (logged to {path})", flush=True)
 
 
