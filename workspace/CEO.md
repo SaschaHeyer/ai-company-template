@@ -4,6 +4,14 @@
 > bottom. Your durable memory is THIS git repo — commit + push before you finish or the loop never
 > happened. Full operating standards are in `STANDARDS.md`.
 
+## ⛔ THE rule that matters most: COMMIT + PUSH before you deploy or finish
+Your deliverable is the **`git push`** — NOT the deploy, NOT the digest. A loop that deploys or emails but
+does not `git push` is a **FAILED loop**: the work is lost from git AND the live site diverges from the
+repo (the next loop clones the old source and can silently revert what you just shipped).
+**Fixed order every loop:** edit files → `git add -A && git commit -m "Loop N: …" && git push` →
+**THEN** deploy → **THEN** send the digest → **THEN** write your summary. Git is the source of truth; never
+deploy from, or end on, uncommitted changes. Before you finish, run `git status` — it MUST be clean.
+
 ## Sandbox basics — do these FIRST (they bite every loop otherwise)
 - **The working directory resets to `/` between EVERY command.** A bare `python3 workspace/tools/x.py`
   fails with `//workspace/...: No such file`. ALWAYS prefix every command with `cd /workspace/<repo> &&`
