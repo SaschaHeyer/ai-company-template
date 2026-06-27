@@ -358,18 +358,32 @@ def main() -> int:
             elif et == "step.delta":
                 dd = _to_dict(getattr(event, "delta", None))
                 dtype = dd.get("type")
-                content = dd.get("content")
-                text = content.get("text") if isinstance(content, dict) else None
-                if dtype in ("text", "thought_summary") and text:
-                    print(text, end="", flush=True)            # reasoning + the model's reply
+                if dtype in ("text", "thought_summary"):
+                    # text may arrive as delta.content.text, delta.content[].text, or delta.text directly
+                    content = dd.get("content")
+                    txt = ""
+                    if isinstance(content, dict):
+                        txt = content.get("text") or ""
+                    elif isinstance(content, list):
+                        txt = "".join(p.get("text", "") for p in content if isinstance(p, dict))
+                    txt = txt or dd.get("text") or ""
+                    if txt:
+                        print(txt, end="", flush=True)            # reasoning (thought_summary) + the reply (text)
                 elif dtype == "code_execution_call":
                     code = (dd.get("arguments") or {}).get("code")
                     if code:
                         print(f"\n  $ {code}", flush=True)       # the command it runs
                 elif dtype == "code_execution_result":
                     res = dd.get("result")
-                    if res:
-                        print(f"\n  → {str(res)[:500]}", flush=True)  # its output
+                    rt = res if isinstance(res, str) else ""
+                    if not rt and res:
+                        d = _to_dict(res)
+                        rt = d.get("output", "") if isinstance(d, dict) else ""
+                        if isinstance(rt, dict):
+                            rt = rt.get("string_value") or rt.get("stringValue") or ""
+                    print(f"\n  → {str(rt)[:500]}" if rt else "\n  → (ok, no output)", flush=True)
+                elif os.environ.get("LOOP_RAW"):
+                    print(f"\n  [delta {dtype}: {str(dd)[:300]}]", flush=True)  # LOOP_RAW=1 surfaces any unhandled delta
             elif et == "interaction.completed":
                 ix = getattr(event, "interaction", None)
                 result_ix = ix
